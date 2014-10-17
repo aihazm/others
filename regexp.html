@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>DEMO</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	
+	<script data-main="app/main" src="app/lib/require.js"></script>
+	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/styles/default.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/highlight.min.js"></script>
+</head>
+<body ng-controller="MainCtrl">
+	<h1>Regular expression test</h1>
+	<fieldset>
+		<legend>Example from Erik</legend>
+	<pre class="javascript">
+		<code class="js" id="the_code">
+		//var app = qlik.openApp("Helpdesk Management.qvf", config);
+		var appId = 'xx';
+var app = qlik.openApp(xx, config);
+		app.getObject(document.getElementById("CH01"), "phtJg");
+		app.getSnapshot(document.getElementById("CH02"), "xpjj");
+		app.createList( {qDef: {qFieldDefs: ["Priority"]}, qFrequencyMode: "V",
+				qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},prio);
+		app.createList( {qDef: {qFieldDefs: ["Case Owner Group"]}, qFrequencyMode: "V",
+				qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},caseOwner);
+		var app2 = qlik.openApp('Helpdesk Management 2.qvf', config);
+        </code>
+	</pre>
+	</fieldset>
+	<fieldset>
+		<legend>The result</legend>
+		<pre>
+		<code id="the_res" class="js">
+			
+		</code>
+		</pre>
+	</fieldset>
+	<script type="text/javascript">
+		hljs.initHighlightingOnLoad();
+		var mashup = [];
+		
+		var txt = document.getElementById('the_code').innerHTML;
+		var getOpenAppStrings=function(txt){
+			var regExp = /[^\/\/^<!--]var\s+([a-zA-z0-9]+)\s*\=\s*qlik\.openApp\([^\)]*\)/g;
+			return txt.match(regExp);
+		};
+		var getParamsInStringFn = function(text){
+			var regExp1 = /\(([^)]+)\)/g;
+			return regExp1.exec(text)[1].split(',');
+		};
+		var findAppId = function(string){
+			var appId = getParamsInStringFn(string)[0];
+			var regExp = /('|")([^('|")]*)('|")/;
+			var res = appId.match(regExp);
+			if(res){
+				return res[2];
+			}else{
+				return false;
+			}
+		};
+		var findAppVar = function(string){
+			var regExp = /^var\s([0-9a-zA-Z_$]*)/i;			
+			return string.match(regExp)[1];
+		};
+		var getAppMethods = function(appVar, string){
+			if(appVar){
+				var regExp = new RegExp('[^\\/\\/^<!--]'+appVar+'\\.(.*?)\\(([^)]+)\\)','g');			
+				var res = [];
+				var tmpRes = string.match(regExp);
+				if(tmpRes){
+					for(var i=0; i<tmpRes.length;i++){				
+						tmpRes[i] = tmpRes[i].trim();
+						tmpRes[i] = tmpRes[i].substring(0,tmpRes[i].length-1); 
+						res.push(tmpRes[i]);
+					};
+					return res;
+				}else{return [];}
+			}
+		};
+		var getAppMethodsStrings = function(appId,string){
+			//removing break lines
+			var stringWithoutLineBreaks = string.replace(/(\r\n|\n|\r)/gm,"");
+			console.log(stringWithoutLineBreaks);
+			var regExp = new RegExp(appId+'.(.*);$', 'gm');
+			console.log(regExp);
+			return string.match(regExp);
+		};
+		var openAppStringsArr = getOpenAppStrings(txt);		
+		for(var i=0; i< openAppStringsArr.length; i++){
+			//console.log(findAppId(openAppStringsArr[i].trim()));
+			var app = {
+				appId : findAppId(openAppStringsArr[i].trim()),
+				'var': findAppVar(openAppStringsArr[i].trim())
+			};
+			//let's get all methods apps
+			var appMethodsArr = getAppMethods(app.var,txt);
+			console.log(appMethodsArr);
+			for(var i=0; i<appMethodsArr.length;i++){
+				
+			}
+			console.log(app);
+			mashup.push(app);
+		}
+		document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup)+';';
+	</script>
+</body>
+</html>
