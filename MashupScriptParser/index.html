@@ -8,43 +8,79 @@
 	<!--<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>-->
 	<link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/styles/default.min.css">
 	<script src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/highlight.min.js"></script>
+	<style>
+		pre{
+			width:45%;
+			float:left;
+		}
+		textarea{
+			padding:.5em;
+		}
+		.toolbar fieldset{
+			display: inline-block;
+			vertical-align: top;
+		}
+	</style>
 </head>
 <body ng-controller="MainCtrl">
 	<h1>Regular expression test</h1>
 	<fieldset>
 		<legend>Example from Erik</legend>
+		<div class="toolbar">
+			<!--<div><button name="btn_run" ng-click="run()">Run Test</button></div>-->			
+			<fieldset>
+				<legend>Apps</legend>
+				<button name="btn_findApps" ng-click="findApps()">Find Apps</button><br/>
+				<input type="text" name="appName" placeholder="app name || app var" value=""/><br/>
+				<button name="btn_findAppByVar" ng-click="findAppByVar($event)">Find App by Var</button><br/>
+				<button name="btn_findAppById" ng-click="findAppById($event)">Find App by Id</button><br/>
+				<button name="btn_findAppMethods" ng-click="findAppMethods($event)">Find App Methods</button>
+			</fieldset>
+			<fieldset>
+				<legend>Visualizations</legend>
+				<input type="text" name="appVar" placeholder="app var" class="app" value=""/><br/>
+				<button name="btn_addVisualization" ng-click="addVisualization($event)">Add visualization</button><br/>
+				<input type="text" name="visId" placeholder="visualization Id" class="vis" value=""/><br/>
+				<button name="btn_delVisualization" ng-click="delVisualization($event)">Del visualization</button><br/>
+				<button name="btn_getVisualization" ng-click="getVisualization($event)">Gel visualization</button><br/>
+			</fieldset>
+			<fieldset>
+				<legend>Cubes and Lists</legend>
+				<input type="text" name="appVar" placeholder="app var" class="app" value=""/><br/>
+				<button name="btn_addList" ng-click="addCube($event)">Add cube</button><br/>				
+				<button name="btn_addCube" ng-click="delList($event)">Add list</button><br/>
+			</fieldset>
+		</div>
 	<pre class="javascript">
-		<textarea class="js" id="the_code" style="width:600px; height:400px;">
-		//var app = qlik.openApp("Helpdesk Management.qvf", config);
-		var appId = 'xx';
-var app = qlik.openApp(xx, config);
-		app.getObject(document.getElementById("CH01"), "phtJg");
-		app.getSnapshot(document.getElementById("CH02"), "xpjj");
-		app.createList( {qDef: {qFieldDefs: ["Priority"]}, qFrequencyMode: "V",
-				qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},prio);
-		app.createList( {qDef: {qFieldDefs: ["Case Owner Group"]}, qFrequencyMode: "V",
-				qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},caseOwner);
+		<textarea class="js" id="the_code" style="width:600px; height:400px;">//var app = qlik.openApp("Helpdesk Management.qvf", config);
+var appId = 'xx';
+var app = qlik.openApp(appId, config);
+app.getObject(document.getElementById("CH01"), "phtJg");
+app.getSnapshot(document.getElementById("CH02"), "xpjj");
+app.createList( {qDef: {qFieldDefs: ["Priority"]}, qFrequencyMode: "V",
+			qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},prio);
+app.createList( {qDef: {qFieldDefs: ["Case Owner Group"]}, qFrequencyMode: "V",
+			qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},caseOwner);
 				
-		app.getObject('test',"test2").then(function(res){
-			console.log('res');
-		});
+app.getObject('test',"test2").then(function(res){
+	console.log('res');
+});
 		
-		var app2 = qlik.openApp('Helpdesk Management 2.qvf', config);
-		app2.getSomethingElse('asas');
-		app2.setSomethingElse('asas');
+var app2 = qlik.openApp('Helpdesk Management 2.qvf', config);
+app2.getSomethingElse('asas');
+app2.setSomethingElse('asas');
         </textarea>
 	</pre>
-	<div class="toolbar">
-		<button name="btn_run" ng-click="run()">Run Test</button>
-	</div>
-	</fieldset>
-	<fieldset>
-		<legend>The result</legend>
-		<pre>
+	<pre>
 		<code id="the_res" class="js">
 			
 		</code>
-		</pre>
+	</pre>
+	
+	</fieldset>
+	<fieldset>
+		<legend>The result</legend>
+		
 	</fieldset>
 	<script type="text/javascript">
 		hljs.initHighlightingOnLoad();
@@ -68,7 +104,7 @@ var app = qlik.openApp(xx, config);
 			}else{
 				return false;
 			}
-		};		
+		};
 		var findAppVar = function(string){//<- ToDo: correct var exclusion
 			var regExp = /^var\s([0-9a-zA-Z_$]*)/i;			
 			return string.match(regExp)[1];
@@ -123,7 +159,7 @@ var app = qlik.openApp(xx, config);
 				return [];
 			}
 		};
-		var openAppStringsArr = getOpenAppStrings(txt);
+		/*var openAppStringsArr = getOpenAppStrings(txt);
 		//console.log(openAppStringsArr.length);
 		for(var i=0; i< openAppStringsArr.length; i++){			
 			var app = {
@@ -136,9 +172,9 @@ var app = qlik.openApp(xx, config);
 				app.methods.push(getMethod(appMethodsStrings[j]));
 			}
 			mashup.push(app);			
-		}
-		console.log('mashup',mashup);
-		document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup,null,'\t')+';';
+		}*/
+		//console.log('mashup',mashup);
+		//document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup,null,'\t')+';';
 		var run = function(){
 			mashup = [];
 			txt = document.getElementById('the_code').innerHTML;
