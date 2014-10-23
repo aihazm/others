@@ -17,7 +17,67 @@ define([],function(){
 	*/
 	var removeComentedCode = function(txt){
 		return txt.replace(/(?:\/\*(?:[\s\S]*?)\*\/)|(?:([\s;])+\/\/(?:.*)$)/gm,'');
-	};	
+	};
+	
+	var qextList2listObj = function(qextList){
+		var listObj = {};
+		if(!qextList.measures){ qextList.measures = []; }		
+		if(qextList.dimid){
+			listObj['qLibraryId']=qextList.dimid
+		}else{
+			listObj['qDef'] = {qFieldDefs: [qextList.field]};
+			listObj['qFrequencyMode'] = ( qextList.freq || 'N' );
+		}
+		if ( qextList.measures.length > 0 ) {
+			listObj['qExpressions']=[];
+			qextList.measures.foreach(function(meas, key){
+				if ( meas.id ) {
+					listObj['qExpressions'].push({qLibraryId : meas.id});
+				} else {
+					listObj['qExpressions'].push({ qExpr : meas.def});
+				}
+			});
+		}
+		listObj['qInitialDataFetch'] = [{qHeight: qextList.rows ,qWidth: ( 1 + qextList.measures.length ) }];
+		return listObj;
+	};
+	
+	var qextCube2cubeObj = function(qextCube){
+		var cubeObj = {	qDimensions:[]};
+		qextCube.dimensions.forEach( function ( dim, key ) {
+			var dimObj = {};
+			if(qextCube.dimid){
+				dimObj['qLibraryId']=dim.dimid
+			}else{
+				dimObj['qDef'] = {qFieldDefs: ["'" + dim.field + "'"]};
+			}
+			if(dim.limit !== 'OTHER_OFF'){
+				dimObj['qOtherTotalSpec']=={
+					qOtherMode: dim.limit
+				}
+				if(dim.limit === 'OTHER_COUNTED'){
+					dimObj['qOtherTotalSpec']['qOtherCounted']=dim.otherCounted;
+				}else{
+					dimObj['qOtherTotalSpec']['qOtherLimit']={qv:dim.otherLimit};
+					dimObj['qOtherTotalSpec']['qOtherLimitMode']=dim.otherLimitMode;
+				}
+				dimObj['qOtherTotalSpec']['qOtherSortMode']=dim.otherSortMode;
+			}
+			cubeObj['qDimensions'].push(dimObj);
+		});
+		if ( qextCube.measures.length > 0 ) {
+			cubeObj['qMeasures'] =[];
+			qextCube.measures.forEach(function(meas, key){
+				if ( meas.id ) {
+					cubeObj['qMeasures'].push({qLibraryId : meas.id , qLabel : meas.def });
+				} else {
+					cubeObj['qDef'].push({qDef : meas.def , qLabel : meas.label });
+				}
+			});
+		}
+		cubeObj['qInitialDataFetch'] = [{qHeight: qextCube.rows ,qWidth: ( qextCube.dimensions.length + qextCube.measures.length ) }];
+		return cubeObj;
+	};
 	/**
 	* Matching all var {xxx} = qlik.openApp... strings
 	* @param {string} the code js string
@@ -110,8 +170,7 @@ define([],function(){
 			if(variable){				
 				//we have a string
 				variable.forEach(function(v){
-					/** @todo implement finVarValue in all string ::: if(findVarValue()) 
-					 */					
+					/** @todo implement finVarValue in all string ::: if(findVarValue()) */					
 					params.push(v);
 					paramsString = paramsString.replace(v,"");//let's remove the found string
 				});								
@@ -192,14 +251,25 @@ define([],function(){
 	var findAppVar = function(string){
 		var regExp = /var\s+([0-9a-zA-Z_$]+)/;
 		return string.match(regExp)[1];
-	};	
+	};
 	
 	var getMashup = function(){};
 	var parseMashup = function(){};
-	/*
-	 * ToDo : create a method to check if string is a variable in the js code
-	 */
+	
+	/** @todo create a method to check if string is a variable in the js code */
 	var addApp=function(string, appVar, appId, config){
+		var openAppCmtPos = string.indexOf('//open apps');
+		if(openAppCmtPos === -1){//need to add one
+			var firstOpenAppStr = getOpenAppStrings(string);
+			if(firstOpenAppStr){
+				var pos = string.indexOf(firstOpenAppStr[0]);
+				string = string.slice(0, pos)+'\n//open apps\n'+string.slice(pos, string.length);
+			}else{
+				string = '//open apps'+string;
+			};
+			openAppCmtPos = string.indexOf('//open apps');
+		};
+		console.log(openAppCmtPos);
 		if(appVar.length > 0){
 			return string+'\nvar '+appVar+' = qlik.openApp(\''+appId+'\', '+JSON.stringify(config)+');';
 		}else{
@@ -266,17 +336,17 @@ define([],function(){
 		strings.forEach(function(str){
 			var last_char = str.substring(str.length-1,str.length);
 			if(last_char==='.'){
-				console.log('we have a promise');
-				findMethodPromise(str, string);
+				//console.log('we have a promise');
+				//findMethodPromise(str, string);
 			}
 			var method = getMethod(str);
 			methods.push(method);
 		});
 		return methods;
-	};	
-	/* ToDo : get method promise */
+	};
+	/** @todo get method promise */
 	var findMethodPromise = function(methodString, string){
-		console.log(methodString);
+		//console.log(methodString);
 	};
 	var addVisualization = function(string, appVar, params){
 		if(appVar.length > 0){
