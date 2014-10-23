@@ -30,7 +30,8 @@ define([],function(){
 	};
 	/**
 	* Matching all .{xxx}( strings for a given app variable
-	* @param {string} the code js string
+	* @param {string} appVar - the actual app var
+	* @param {string} string - the code js string
 	* @returns {array} methods strings
 	*/
 	var getAppMethodsStrings = function(appVar,string){
@@ -52,67 +53,144 @@ define([],function(){
 	};
 	/**
 	* Matching method string for extracting method name and given parameters
-	* @param {string} the method string
+	* @param {string} methodString - the method string
 	* @returns {array} methods with parameters
 	*/
-	var getMethod = function(methodString){
+	var getMethod = function(methodString){		
 		var method = {};
 		var regExp = /\.([^\(]*)/i; //getting method name
 		method['name'] = methodString.match(regExp)[0];
 		var regExp = /\(([\s\S]+?)((\)\;)|(\)\.))/g;
 		var paramsString = methodString.match(regExp)[0];			
 		var params=[];
+		// Obs the order is imperative 1st test functions 2nd test objects 3rd test string 4th test vars
 		if(paramsString){
 			paramsString= paramsString.substring(1, paramsString.length-2);// removing parantheses
-			var regExpParams = /(\{[\S\s]*\})/g;
-			var obj = paramsString.match(regExpParams);
-			if(obj){// we may have an object
-				try{
-					params.push(obj[0]);
-					paramsString = paramsString.replace(obj,"");
-					var otherParams = paramsString.split(',');
-					for(var p=0; p<otherParams.length; p++){
-						if(otherParams[p].trim()!==''){
-							otherParams[p]=otherParams[p].replace(/("|')/g,'');
-							params.push(otherParams[p].trim());
-						}
-					} 
-				}catch(e){console.log(e);}
-			}else{
-				params=paramsString.split(',');
-				//remove quotes from simple strings
-				for(var k=0; k<params.length; k++){
-					params[k]=params[k].replace(/("|')/g,'').trim();
-				}
-			};
+			//testing document.getElementById('')
+			var regExpParam = /(document.getElementById\(('|").*('|")\))/g;
+			var domEl = paramsString.match(regExpParam);
+			if(domEl){
+				domEl.forEach(function(d){
+					params.push(d);
+					paramsString = paramsString.replace(d,"");//let's remove the found string
+				});				
+			}
+			//testing functions
+			var regExpParam = /(function\(.*\)\{[\\S\\s]*\})/g;
+			var fn = paramsString.match(regExpParam);
+			if(fn){
+				fn.forEach(function(f){
+					params.push(eval('('+f+')'));
+					paramsString = paramsString.replace(f,"");//let's remove the found string
+				});				
+			}
+			//testing object			
+			var regExpParam = /({[\S\s]*})/g;
+			var obj = paramsString.match(regExpParam);
+			if(obj){
+				//we have an object
+				obj.forEach(function(o){
+					params.push(eval('('+o+')'));
+					paramsString = paramsString.replace(o,"");//let's remove the found string
+				});								
+			}
+			//testing string
+			var regExpParam = /(("|')[^("|')]*("|'))/g;
+			var string = paramsString.match(regExpParam);
+			if(string){				
+				//we have a string
+				string.forEach(function(str){
+					params.push(eval('('+str+')'));
+					paramsString = paramsString.replace(str,"");//let's remove the found string
+				});								
+			}
+			//testing var wich can be strings, functions arrays or objects
+			var regExpParam = /([^\s,][A-Za-z0-9$_]*)/g;
+			var variable = paramsString.match(regExpParam);			
+			if(variable){				
+				//we have a string
+				variable.forEach(function(v){
+					/** @todo implement finVarValue in all string ::: if(findVarValue()) 
+					 */					
+					params.push(v);
+					paramsString = paramsString.replace(v,"");//let's remove the found string
+				});								
+			}			
 			method['params'] = params;
 		}
 		return method;
 	};
 	/**
-	 * Todo: create find app 'var' value in string  
-	 */
+	* Match the value of a variable 
+	* @param {string} strVar - the var string
+	* @param {string} string - the js code
+	* @returns {string|object|array|function} the "compiled" value
+	*/
 	var findVarValue = function(strVar, string){
-		/*string = removeComentedCode(string);
-		var pattern = '/'+strVar+'\\s*=\\s*(\'|")(.*)(\'|")/';
-		console.log(strVar, string, pattern);
-		var regExp = new RegExp(pattern,'g');
-		console.log(string.match(regExp));*/
+		string = removeComentedCode(string);
+		var res = false;
+		/* testing string */
+		var pattern = strVar+'\\s*=\\s*(\'|")(.*)(\'|")';
+		var regExp = new RegExp(pattern,'g');		
+		var res = string.match(regExp);
+		if(res){
+			res = res[0].match(/('|")(.*)('|")/g);
+			return res[0].replace(/("|')/g,'').trim();
+		}
+		/* testing object */
+		var pattern = strVar+'\\s*=\\s*{([^}]+)}';
+		var regExp = new RegExp(pattern,'g');		
+		var res = string.match(regExp);
+		if(res){
+			res = res[0].match(/{[\S\s]*}/g);
+			return eval("("+res+")");
+		}
+		/* testing array */
+		var pattern = strVar+'\\s*=\\s*\\[([^\\]]+)\\]';
+		var regExp = new RegExp(pattern,'g');		
+		var res = string.match(regExp);
+		if(res){
+			res = res[0].match(/\[([^\]]+)\]/g);
+			res[0] = res[0].replace(/(\r\n|\n|\r)/gm,'');
+			return eval("("+res[0]+")");
+		}
+		/* testing function */
+		var pattern = strVar+'\\s*=\\s*(function\(.*\)\{[\\S\\s]*\})';
+		var regExp = new RegExp(pattern,'g');		
+		var res = string.match(regExp);
+		if(res){			
+			res = res[0].match(/(function\(.*\)\{[\S\s]*\})/g);						
+			return eval("("+res[0]+")");
+		}
+		return res;
 	};
-	
-	var findAppId = function(string){
-		var appId = getParamsInStringFn(string)[0];
+	/**
+	* Search for the appId in the openApp string 
+	* @param {string} openAppStr
+	* @param {string} string - the js code
+	* @returns {string} the "appId" value
+	*/
+	var findAppId = function(openAppStr, string){
+		var appId = getParamsInStringFn(openAppStr)[0];		
 		var regExp = /('|")([^('|")]*)('|")/;
 		var res = appId.match(regExp);
 		if(res){
 			return res[2];
 		}else{
+			if(string){
+				//let's try to find the appId in a var
+				return findVarValue(appId, string);
+			}
 			return false;
 		}
 	};
-	
+	/**
+	* Search for appVar in string (line) 
+	* @param {string} string
+	* @returns {string} the "appVar" value
+	*/
 	var findAppVar = function(string){
-		var regExp = /var\s+([0-9a-zA-Z_$]+)/;			
+		var regExp = /var\s+([0-9a-zA-Z_$]+)/;
 		return string.match(regExp)[1];
 	};	
 	
@@ -128,7 +206,12 @@ define([],function(){
 			return string;
 		}
 	};
-	
+	/**
+	* retrieves all found apps and return the app with the given ID 
+	* @param {string} appId
+	* @param {string} string - the js code
+	* @returns {object} the "app" object with methods and all
+	*/
 	var findAppById = function(appId, string){
 		var apps = findApps(string);
 		var res = false;
@@ -139,6 +222,12 @@ define([],function(){
 		});
 		return res;
 	};
+	/**
+	* retrieves all found apps and return the app with the given variable name 
+	* @param {string} appVar
+	* @param {string} string - the js code
+	* @returns {object} the "app" object with methods and all
+	*/
 	var findAppByVar = function(appVar,string){
 		var apps = findApps(string);
 		var res= false;
@@ -149,11 +238,16 @@ define([],function(){
 		});
 		return res;
 	};
+	/**
+	* retrieves all found apps	
+	* @param {string} string - the js code
+	* @returns {array} the "apps" with all apps
+	*/
 	var findApps = function(string){
 		var apps = [];
 		var strings = getOpenAppStrings(string);
 		strings.forEach(function(str){
-			var appId = findAppId(str);			
+			var appId = findAppId(str, string);			
 			var appVar = findAppVar(str);
 			if(appVar){
 				var methods = findAppMethods(appVar, string);
@@ -170,12 +264,20 @@ define([],function(){
 		var methods = [];
 		var strings = getAppMethodsStrings(appVar, string);
 		strings.forEach(function(str){
+			var last_char = str.substring(str.length-1,str.length);
+			if(last_char==='.'){
+				console.log('we have a promise');
+				findMethodPromise(str, string);
+			}
 			var method = getMethod(str);
 			methods.push(method);
 		});
 		return methods;
-	};
+	};	
 	/* ToDo : get method promise */
+	var findMethodPromise = function(methodString, string){
+		console.log(methodString);
+	};
 	var addVisualization = function(string, appVar, params){
 		if(appVar.length > 0){
 			params = params.map(function(param){
@@ -236,6 +338,7 @@ define([],function(){
 	
 	
 	return {
+		findVarValue:findVarValue,
 		/* Apps */
 		addApp : addApp,
 		findApps : findApps,
