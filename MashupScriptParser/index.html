@@ -32,6 +32,7 @@
 				<legend>Apps</legend>
 				<button name="btn_findApps" ng-click="findApps()">Find Apps</button><br/>
 				<input type="text" name="appName" placeholder="app name || app var" value=""/><br/>
+				<button name="btn_addApp" ng-click="addApp($event)">Add App</button><br/>
 				<button name="btn_findAppByVar" ng-click="findAppByVar($event)">Find App by Var</button><br/>
 				<button name="btn_findAppById" ng-click="findAppById($event)">Find App by Id</button><br/>
 				<button name="btn_findAppMethods" ng-click="findAppMethods($event)">Find App Methods</button>
@@ -47,8 +48,8 @@
 			<fieldset>
 				<legend>Cubes and Lists</legend>
 				<input type="text" name="appVar" placeholder="app var" class="app" value=""/><br/>
-				<button name="btn_addList" ng-click="addCube($event)">Add cube</button><br/>				
-				<button name="btn_addCube" ng-click="delList($event)">Add list</button><br/>
+				<button name="btn_addCube" ng-click="addCube($event)">Add cube</button><br/>				
+				<button name="btn_addList" ng-click="addList($event)">Add list</button><br/>
 			</fieldset>
 		</div>
 	<pre class="javascript">

@@ -1,5 +1,11 @@
+/**
+* Utility for generating Mashup JS code
+*
+* @exports workbench.utils/mashup-generator
+* @owner Aiham Azmeh (aaz)
+**/
 define([],function(){
-	"use strict";	
+	"use strict";			
 	/******************************************
 	 * Private functions 
 	 ******************************************/
@@ -83,6 +89,9 @@ define([],function(){
 		}
 		return method;
 	};
+	/**
+	 * Todo: create find app 'var' value in string  
+	 */
 	var findVarValue = function(strVar, string){
 		/*string = removeComentedCode(string);
 		var pattern = '/'+strVar+'\\s*=\\s*(\'|")(.*)(\'|")/';
@@ -90,6 +99,7 @@ define([],function(){
 		var regExp = new RegExp(pattern,'g');
 		console.log(string.match(regExp));*/
 	};
+	
 	var findAppId = function(string){
 		var appId = getParamsInStringFn(string)[0];
 		var regExp = /('|")([^('|")]*)('|")/;
@@ -100,6 +110,7 @@ define([],function(){
 			return false;
 		}
 	};
+	
 	var findAppVar = function(string){
 		var regExp = /var\s+([0-9a-zA-Z_$]+)/;			
 		return string.match(regExp)[1];
@@ -107,8 +118,17 @@ define([],function(){
 	
 	var getMashup = function(){};
 	var parseMashup = function(){};
+	/*
+	 * ToDo : create a method to check if string is a variable in the js code
+	 */
+	var addApp=function(string, appVar, appId, config){
+		if(appVar.length > 0){
+			return string+'\nvar '+appVar+' = qlik.openApp(\''+appId+'\', '+JSON.stringify(config)+');';
+		}else{
+			return string;
+		}
+	};
 	
-	var addApp=function(){};
 	var findAppById = function(appId, string){
 		var apps = findApps(string);
 		var res = false;
@@ -197,36 +217,19 @@ define([],function(){
 	
 	var addCube = function(string, appVar, params){
 		if(appVar.length > 0){
-			var cube = {
-				qDimensions : [{
-					qDef : {
-						qFieldDefs : ["FirstName"]
-					}
-				}, {
-					qDef : {
-						qFieldDefs : ["LastName"]
-					}
-				}],
-				qMeasures : [{
-					qDef : {
-						qDef : "1"
-					}
-				}],
-				qInitialDataFetch : [{
-					qTop : 0,
-					qLeft : 0,
-					qHeight : 20,
-					qWidth : 3
-				}]
-			};
-			
-			return string+'\n'+appVar+'.createCube('+JSON.stringify(cube,null,'\t')+','+params[1]+');';
+			return string+'\n'+appVar+'.createCube('+JSON.stringify(params[0],null,'\t')+','+params[1]+');';
 		}else{
 			return string;
 		}
 	};
 	var updateCube = function(){};
-	var addList = function(){};
+	var addList = function(string, appVar, params){
+		if(appVar.length > 0){		
+			return string+'\n'+appVar+'.createCube('+JSON.stringify(params[0],null,'\t')+','+params[1]+');';
+		}else{
+			return string;
+		}
+	};
 	var updateList = function(){};
 	
 	
@@ -234,6 +237,7 @@ define([],function(){
 	
 	return {
 		/* Apps */
+		addApp : addApp,
 		findApps : findApps,
 		findAppById : findAppById,
 		findAppByVar : findAppByVar, 
