@@ -18,7 +18,11 @@ define([],function(){
 	var removeComentedCode = function(txt){
 		return txt.replace(/(?:\/\*(?:[\s\S]*?)\*\/)|(?:([\s;])+\/\/(?:.*)$)/gm,'');
 	};
-	
+	/**
+	* Converting qext format List to qlik object list format
+	* @param {object} qextList
+	* @returns {object} listObj
+	*/
 	var qextList2listObj = function(qextList){
 		var listObj = {};
 		if(!qextList.measures){ qextList.measures = []; }		
@@ -41,7 +45,11 @@ define([],function(){
 		listObj['qInitialDataFetch'] = [{qHeight: qextList.rows ,qWidth: ( 1 + qextList.measures.length ) }];
 		return listObj;
 	};
-	
+	/**
+	* Converting qext format Cube to qlik object cube format
+	* @param {object} qextCube
+	* @returns {object} cubeObj
+	*/
 	var qextCube2cubeObj = function(qextCube){
 		var cubeObj = {	qDimensions:[]};
 		qextCube.dimensions.forEach( function ( dim, key ) {
@@ -129,7 +137,8 @@ define([],function(){
 			//testing document.getElementById('')
 			var regExpParam = /(document.getElementById\(('|").*('|")\))/g;
 			var domEl = paramsString.match(regExpParam);
-			if(domEl){
+			/** todo: support jQuery / angular / mootool / extjs selectors */
+			if(domEl){//we have a dom element
 				domEl.forEach(function(d){
 					params.push(d);
 					paramsString = paramsString.replace(d,"");//let's remove the found string
@@ -138,7 +147,7 @@ define([],function(){
 			//testing functions
 			var regExpParam = /(function\(.*\)\{[\\S\\s]*\})/g;
 			var fn = paramsString.match(regExpParam);
-			if(fn){
+			if(fn){//we have a function
 				fn.forEach(function(f){
 					params.push(eval('('+f+')'));
 					paramsString = paramsString.replace(f,"");//let's remove the found string
@@ -147,8 +156,7 @@ define([],function(){
 			//testing object			
 			var regExpParam = /({[\S\s]*})/g;
 			var obj = paramsString.match(regExpParam);
-			if(obj){
-				//we have an object
+			if(obj){//we have an object
 				obj.forEach(function(o){
 					params.push(eval('('+o+')'));
 					paramsString = paramsString.replace(o,"");//let's remove the found string
@@ -167,8 +175,7 @@ define([],function(){
 			//testing var wich can be strings, functions arrays or objects
 			var regExpParam = /([^\s,][A-Za-z0-9$_]*)/g;
 			var variable = paramsString.match(regExpParam);			
-			if(variable){				
-				//we have a string
+			if(variable){//we have a string
 				variable.forEach(function(v){
 					/** @todo implement finVarValue in all string ::: if(findVarValue()) */					
 					params.push(v);
@@ -257,6 +264,14 @@ define([],function(){
 	var parseMashup = function(){};
 	
 	/** @todo create a method to check if string is a variable in the js code */
+	/**
+	* For a given var and appIp  generating the openApp	
+	* @param {string} string - the js code
+	* @param {string} appVar - the var string
+	* @param {string} appId - the appId
+	* @param {string|object} config - the initial config objectS
+	* @returns {string} the "modified" js string
+	*/
 	var addApp=function(string, appVar, appId, config){
 		var openAppCmtPos = string.indexOf('//open apps');
 		if(openAppCmtPos === -1){//need to add one
@@ -269,7 +284,7 @@ define([],function(){
 			};
 			openAppCmtPos = string.indexOf('//open apps');
 		};
-		console.log(openAppCmtPos);
+		//console.log(openAppCmtPos);
 		if(appVar.length > 0){
 			return string+'\nvar '+appVar+' = qlik.openApp(\''+appId+'\', '+JSON.stringify(config)+');';
 		}else{
@@ -348,7 +363,25 @@ define([],function(){
 	var findMethodPromise = function(methodString, string){
 		//console.log(methodString);
 	};
+	/**
+	* adds to string after //get objects comment 	
+	* @param {string} string - the js code
+	* @param {string} appVar - the var string
+	* @param {array} params - an array with parameters
+	* @returns {string} the "modified" js string
+	*/
 	var addVisualization = function(string, appVar, params){
+		var visCmtPos = string.indexOf('//getObjects');
+		if(visCmtPos === -1){//need to add one
+			var addVisualizationStr = getOpenAppStrings(string);
+			if(addVisualizationStr){
+				var pos = string.indexOf(firstOpenAppStr[0]);
+				string = string.slice(0, pos)+'\n//open apps\n'+string.slice(pos, string.length);
+			}else{
+				string = '//open apps'+string;
+			};
+			openAppCmtPos = string.indexOf('//open apps');
+		};
 		if(appVar.length > 0){
 			params = params.map(function(param){
 				return '\''+param+'\'';
@@ -358,11 +391,23 @@ define([],function(){
 			return string;
 		}
 	};
+	/**
+	* remove from string the unwanted string visulazation	
+	* @param {string} string - the js code
+	* @param {string} appId - the visulaization ID can be snapshot or generic object
+	* @returns {string} the "modified" js string
+	*/
 	var delVisualization = function(string,visId){
 		var regExp = '([A-Za-z0-9$_]*\.getObject\(.*("|\')'+visId+'(\'|")\)(\.|;))';
 		var regExp = new RegExp(regExp,'g');
 		return string.replace(regExp,'');
 	};
+	/**
+	* retreive the visualization asa an object	
+	* @param {string} string - the js code
+	* @param {string} visId - the visulaization ID
+	* @returns {object} the visualization itself
+	*/
 	var getVisualization = function(string, visId){
 		var vis={};
 		string = removeComentedCode(string);
@@ -386,7 +431,13 @@ define([],function(){
 		}
 		return vis;
 	};
-	
+	/**
+	* adds a cube directive to the string	
+	* @param {string} string - the js code
+	* @param {string} appVar - the visulaization variable
+	* @param {array} params 
+	* @returns {string} the "modified" js string
+	*/
 	var addCube = function(string, appVar, params){
 		if(appVar.length > 0){
 			return string+'\n'+appVar+'.createCube('+JSON.stringify(params[0],null,'\t')+','+params[1]+');';
@@ -395,6 +446,13 @@ define([],function(){
 		}
 	};
 	var updateCube = function(){};
+	/**
+	* adds a list directive to the string	
+	* @param {string} string - the js code
+	* @param {string} appVar - the visulaization variable
+	* @param {array} params 
+	* @returns {string} the "modified" js string
+	*/
 	var addList = function(string, appVar, params){
 		if(appVar.length > 0){		
 			return string+'\n'+appVar+'.createCube('+JSON.stringify(params[0],null,'\t')+','+params[1]+');';
