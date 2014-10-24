@@ -55,19 +55,26 @@
 	<pre class="javascript">
 		<textarea class="js" id="the_code" style="width:600px; height:400px;">//var app = qlik.openApp("Helpdesk Management.qvf", config);
 var appId = 'xx';
+//open apps
 var app = qlik.openApp(appId, config);
+var app2 = qlik.openApp('Helpdesk Management 2.qvf', config);
+
+//get objects
 app.getObject(document.getElementById("CH01"), "phtJg");
 app.getSnapshot(document.getElementById("CH02"), "xpjj");
+app.getObject('test',"test2").then(function(res){
+	console.log('res');
+});
+
+//create lists and cubes
 app.createList( {qDef: {qFieldDefs: ["Priority"]}, qFrequencyMode: "V",
 			qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},prio);
 app.createList( {qDef: {qFieldDefs: ["Case Owner Group"]}, qFrequencyMode: "V",
 			qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},caseOwner);
 				
-app.getObject('test',"test2").then(function(res){
-	console.log('res');
-});
+
 		
-var app2 = qlik.openApp('Helpdesk Management 2.qvf', config);
+
 app2.getSomethingElse('asas');
 app2.setSomethingElse('asas');
 

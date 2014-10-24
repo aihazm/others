@@ -274,8 +274,8 @@ define([],function(){
 	*/
 	var addApp=function(string, appVar, appId, config){
 		var openAppCmtPos = string.indexOf('//open apps');
-		if(openAppCmtPos === -1){//need to add one
-			var firstOpenAppStr = getOpenAppStrings(string);
+		var firstOpenAppStr = getOpenAppStrings(string);
+		if(openAppCmtPos === -1){//need to add one			
 			if(firstOpenAppStr){
 				var pos = string.indexOf(firstOpenAppStr[0]);
 				string = string.slice(0, pos)+'\n//open apps\n'+string.slice(pos, string.length);
@@ -284,9 +284,14 @@ define([],function(){
 			};
 			openAppCmtPos = string.indexOf('//open apps');
 		};
-		//console.log(openAppCmtPos);
+		console.log(firstOpenAppStr);
+		if(firstOpenAppStr.length>0){
+			var lastOpenAppStrPos = string.indexOf(firstOpenAppStr[firstOpenAppStr.length-1])+firstOpenAppStr[firstOpenAppStr.length-1].length+1;
+		}else{
+			lastOpenAppStrPos = openAppCmtPos+('//open apps'.length);
+		}		
 		if(appVar.length > 0){
-			return string+'\nvar '+appVar+' = qlik.openApp(\''+appId+'\', '+JSON.stringify(config)+');';
+			return string.slice(0,lastOpenAppStrPos)+'\nvar '+appVar+' = qlik.openApp(\''+appId+'\', '+JSON.stringify(config)+');\n'+string.slice(lastOpenAppStrPos, string.length);
 		}else{
 			return string;
 		}
@@ -371,22 +376,22 @@ define([],function(){
 	* @returns {string} the "modified" js string
 	*/
 	var addVisualization = function(string, appVar, params){
-		var visCmtPos = string.indexOf('//getObjects');
+		var visCmtPos = string.indexOf('//get objects');
+		var regExp = new RegExp('([A-Za-z0-9_$]*\\.(getObject|getSnapshot)[\\S\\s]+?((\\)\\;)|(\\)\\.)))','g');
+		var res = string.match(regExp);
 		if(visCmtPos === -1){//need to add one
-			var addVisualizationStr = getOpenAppStrings(string);
-			if(addVisualizationStr){
-				var pos = string.indexOf(firstOpenAppStr[0]);
-				string = string.slice(0, pos)+'\n//open apps\n'+string.slice(pos, string.length);
-			}else{
-				string = '//open apps'+string;
-			};
-			openAppCmtPos = string.indexOf('//open apps');
+			if(res){// add it before the first getObject or getSnapshot
+				var pos = string.indexOf(res[0]);
+				string = string.slice(0, pos)+'//get objects\n'+string.slice(pos, string.length);
+			}
+			visCmtPos = string.indexOf('//get objects');
 		};
 		if(appVar.length > 0){
+			visCmtPos = visCmtPos+('//get objects'.length);
 			params = params.map(function(param){
 				return '\''+param+'\'';
 			});
-			return string+'\n'+appVar+'.getObject('+params+');';
+			return string.slice(0,visCmtPos)+'\n'+appVar+'.getObject('+params+');'+string.slice(visCmtPos, string.length);
 		}else{
 			return string;
 		}
