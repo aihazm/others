@@ -7,10 +7,12 @@
 </head>
 <body ng-controller="MainCtrl">
 	<p>the App</p>
-	<div class="scroll_cnt" style="height:400px; border:1px dashed #e6e6e6; display:inline-block; position:relative;">
-	<div q-scroll="">
-		<div ng-repeat="country in countries">{{country.capital}} | {{country.demonym}}</div>
-	</div>
+	<!--<q-scroll data="">skdjfhdkj</q-scroll>-->
+	<div q-scroll="countries" style="height:400px; border:1px dashed #e6e6e6;">
+		<!--<ul>
+			<li ng-repeat="country in countries">{{country.capital}} | {{country.demonym}}</li>
+		</ul>-->
+		<div ng-repeat="country in countries">{{country.capital}} | {{country.demonym}}</div>		
 	</div>
 </body>
 </html>

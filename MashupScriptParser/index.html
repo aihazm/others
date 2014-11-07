@@ -40,10 +40,11 @@
 			<fieldset>
 				<legend>Visualizations</legend>
 				<input type="text" name="appVar" placeholder="app var" class="app" value=""/><br/>
-				<button name="btn_addVisualization" ng-click="addVisualization($event)">Add visualization</button><br/>
+				<button name="btn_addObject" ng-click="addObject($event)">Add Object</button><br/>
+				<button name="btn_addSnapshot" ng-click="addSnapshot($event)">Add Snapshot</button><br/>
 				<input type="text" name="visId" placeholder="visualization Id" class="vis" value=""/><br/>
 				<button name="btn_delVisualization" ng-click="delVisualization($event)">Del visualization</button><br/>
-				<button name="btn_getVisualization" ng-click="getVisualization($event)">Gel visualization</button><br/>
+				<button name="btn_getVisualization" ng-click="getVisualization($event)">Get visualization</button><br/>
 			</fieldset>
 			<fieldset>
 				<legend>Cubes and Lists</legend>
@@ -66,7 +67,7 @@ app.getObject('test',"test2").then(function(res){
 	console.log('res');
 });
 
-//create lists and cubes
+//create cubes and lists
 app.createList( {qDef: {qFieldDefs: ["Priority"]}, qFrequencyMode: "V",
 			qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},prio);
 app.createList( {qDef: {qFieldDefs: ["Case Owner Group"]}, qFrequencyMode: "V",

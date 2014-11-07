@@ -375,7 +375,7 @@ define([],function(){
 	* @param {array} params - an array with parameters
 	* @returns {string} the "modified" js string
 	*/
-	var addVisualization = function(string, appVar, params){
+	var addObject = function(string, appVar, params){
 		var visCmtPos = string.indexOf('//get objects');
 		var regExp = new RegExp('([A-Za-z0-9_$]*\\.(getObject|getSnapshot)[\\S\\s]+?((\\)\\;)|(\\)\\.)))','g');
 		var res = string.match(regExp);
@@ -397,14 +397,44 @@ define([],function(){
 		}
 	};
 	/**
+	* adds to string after //get objects comment 	
+	* @param {string} string - the js code
+	* @param {string} appVar - the var string
+	* @param {array} params - an array with parameters
+	* @returns {string} the "modified" js string
+	*/
+	var addSnapshot = function(string, appVar, params){
+		var visCmtPos = string.indexOf('//get objects');
+		var regExp = new RegExp('([A-Za-z0-9_$]*\\.(getObject|getSnapshot)[\\S\\s]+?((\\)\\;)|(\\)\\.)))','g');
+		var res = string.match(regExp);
+		if(visCmtPos === -1){//need to add one
+			if(res){// add it before the first getObject or getSnapshot
+				var pos = string.indexOf(res[0]);
+				string = string.slice(0, pos)+'//get objects\n'+string.slice(pos, string.length);
+			}
+			visCmtPos = string.indexOf('//get objects');
+		};
+		if(appVar.length > 0){
+			visCmtPos = visCmtPos+('//get objects'.length);
+			params = params.map(function(param){
+				return '\''+param+'\'';
+			});
+			return string.slice(0,visCmtPos)+'\n'+appVar+'.getSnapshot('+params+');'+string.slice(visCmtPos, string.length);
+		}else{
+			return string;
+		}
+	};
+	/**
 	* remove from string the unwanted string visulazation	
 	* @param {string} string - the js code
 	* @param {string} appId - the visulaization ID can be snapshot or generic object
 	* @returns {string} the "modified" js string
 	*/
 	var delVisualization = function(string,visId){
-		var regExp = '([A-Za-z0-9$_]*\.getObject\(.*("|\')'+visId+'(\'|")\)(\.|;))';
+		//var regExp = '([A-Za-z0-9$_]*\.(getObject|getSnapshot)\(.*("|\')'+visId+'(\'|")\)(\.|;))';
+		var regExp = '([A-Za-z0-9$_]*\\.(getObject|getSnapshot)\\([\\S\\s]*("|\')'+visId+'(\'|")[\\S\\s]*\\);)';
 		var regExp = new RegExp(regExp,'g');
+		console.log(regExp);
 		return string.replace(regExp,'');
 	};
 	/**
@@ -444,8 +474,28 @@ define([],function(){
 	* @returns {string} the "modified" js string
 	*/
 	var addCube = function(string, appVar, params){
+		var cubelistCmtPos = string.indexOf('//create cubes and lists');
+		var regExp = /([A-Za-z0-9$_]*\.(createCube|createList)\([\S\s]+?((\);)))/g;
+		var addCubeListStr = string.match(regExp);
+		var destPos = 0;
+		if(cubelistCmtPos === -1){// the comment is not there, had to be added
+			if(addCubeListStr){
+				var pos = string.indexOf(addCubeListStr[0]);
+				string = string.slice(0,pos)+'\n//create cubes and list\n'+string.slice(pos, string.length);
+				cubelistCmtPos = string.indexOf('//create cubes and lists');
+				destPos = string.indexOf(addCubeListStr[addCubeListStr.length-1])+addCubeListStr[addCubeListStr.length-1].length;				
+			}else{
+				destPos = pos+('//create cubes and list'.length);
+			}
+		}else{//it's there, run!!!! run!!!!
+			if(addCubeListStr){
+				destPos = string.indexOf(addCubeListStr[addCubeListStr.length-1])+addCubeListStr[addCubeListStr.length-1].length;
+			}else{				
+				destPos = cubelistCmtPos;
+			}
+		}
 		if(appVar.length > 0){
-			return string+'\n'+appVar+'.createCube('+JSON.stringify(params[0],null,'\t')+','+params[1]+');';
+			return string.slice(0,destPos)+'\n'+appVar+'.createCube('+JSON.stringify(params[0],null,'\t')+','+params[1]+');\n'+string.slice(destPos, string.length);
 		}else{
 			return string;
 		}
@@ -468,6 +518,15 @@ define([],function(){
 	var updateList = function(){};
 	
 	
+	var addCallBack = function(string, callback){
+		var callbackCmtPos = string.indexOf('//callbacks');		
+		if(callbackCmtPos === -1){
+			string = string+'\n//callbacks\n';
+			callbackCmtPos = string.indexOf('//callbacks')
+		}
+		var destPos = callbackCmtPos + ('//callbacks'.length);
+		return string.slice(0, destPos)+'function '+callback+'(reply, app){\n}\n'+string.slice(destPos, string.length)
+	};
 	
 	
 	return {
@@ -479,7 +538,8 @@ define([],function(){
 		findAppByVar : findAppByVar, 
 		findAppMethods : findAppMethods,
 		/* Visualizations */
-		addVisualization: addVisualization,
+		addObject: addObject,
+		addSnapshot: addSnapshot,
 		delVisualization: delVisualization,
 		getVisualization: getVisualization,
 		/* Cubes and Lists */

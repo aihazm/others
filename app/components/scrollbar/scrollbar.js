@@ -9,17 +9,19 @@ define(['text!./scroll.ng.html','text!./scroll.css'],function(template, css){
 	        	data:'='
 	        },
 	        template: template,
+	        controller : ['$scope',function($scope){
+	        }],
 	        link: function(scope, element, attrbs) {
 	        	var cfg = {
 	        		dragSpeedModifier:1
 	        	};
-	        	var child = angular.element( element[0].querySelector('.qw-scroll-cnt') ),
+	        	var child = angular.element( element[0].querySelector('.qw-scroll-cnt') ),	        	
                 scrlbCnt = angular.element( element[0].querySelector('.qw-scroll-scrlb-cnt') ),
                 scrlb = angular.element( scrlbCnt.children()[0] ),
                 cntSize = element[0].offsetHeight,
                 scrlbLength,
                 length = 0;
-                console.log(child,scrlbCnt,scrlb,cntSize,scrlbLength,length);
+                //console.log(child,scrlbCnt,scrlb,cntSize,scrlbLength,length);
                 
                 function scroll(distance){
                 	var newMargin = parseInt( child.css('margin-top') || 0 ) + distance;
@@ -42,7 +44,6 @@ define(['text!./scroll.ng.html','text!./scroll.css'],function(template, css){
                 		length = cntSize;
                 	}
                 	scrlbLength = ( cntSize / length ) * cntSize - 6;
-                	console.log(cntSize,scrlbLength);
 	                scrlb.css('height', scrlbLength + 'px');
 	                scrlb.css('transition', 'opacity .3s ease-in-out, border-radius .1s linear, width .1s linear, right .1s linear');	                
 	                scroll(0);
@@ -61,7 +62,19 @@ define(['text!./scroll.ng.html','text!./scroll.css'],function(template, css){
 	                var delta = (event.wheelDeltaY || event.wheelDelta);	
 	                scroll( delta );
 	            });
-	            
+	            if( window.navigator.userAgent.toLowerCase().indexOf('firefox') >= 0) {
+	                child.on('wheel', function(event) {
+	                    event.preventDefault();	
+	                    // If jQuery hid the original event, retrieve it
+	                    if( event.originalEvent !== undefined ){
+	                    	event = event.originalEvent;
+	                    }
+	                    var delta = event.deltaX;
+	
+	                    scroll( - delta * config.firefoxModifier );
+	                    return false;
+	                });
+	            }
 	            var scrlbMousedown, scrlbOffset;
 	            scrlb.on('mousedown', function(event) {
 	                event.preventDefault();

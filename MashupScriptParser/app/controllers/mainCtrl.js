@@ -36,10 +36,18 @@ define(['utils/mashup-generator'],function(mashupGenerator){
 			document.getElementById('the_res').innerHTML='/* for app with var '+appVar+'*/\nvar methods = '+JSON.stringify(methods,null,'\t')+';';
 			$('pre code').each(function(i, block) { hljs.highlightBlock(block);});
 		};
-		$scope.addVisualization = function($event){
+		$scope.addObject = function($event){
 			var appVar = $($event.currentTarget).parent().find('input.app').val();
 			var params = ['elementId','objectId'];
-			var result_string = mashupGenerator.addVisualization($the_code.val(), appVar, params);
+			var result_string = mashupGenerator.addObject($the_code.val(), appVar, params);
+			document.getElementById('the_res').innerHTML=result_string;
+			document.getElementById('the_code').innerHTML=result_string;
+			$('pre code').each(function(i, block) { hljs.highlightBlock(block);});
+		};
+		$scope.addSnapshot = function($event){
+			var appVar = $($event.currentTarget).parent().find('input.app').val();
+			var params = ['elementId','objectId'];
+			var result_string = mashupGenerator.addSnapshot($the_code.val(), appVar, params);
 			document.getElementById('the_res').innerHTML=result_string;
 			document.getElementById('the_code').innerHTML=result_string;
 			$('pre code').each(function(i, block) { hljs.highlightBlock(block);});
