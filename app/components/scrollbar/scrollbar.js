@@ -69,9 +69,9 @@ define(['text!./scroll.ng.html','text!./scroll.css'],function(template, css){
 	                    if( event.originalEvent !== undefined ){
 	                    	event = event.originalEvent;
 	                    }
-	                    var delta = event.deltaX;
-	
-	                    scroll( - delta * config.firefoxModifier );
+	                    var delta = event.deltaY;
+						console.log(delta);
+	                    scroll( - delta * 40 );
 	                    return false;
 	                });
 	            }

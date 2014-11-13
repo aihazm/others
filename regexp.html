@@ -13,27 +13,849 @@
 	<h1>Regular expression test</h1>
 	<fieldset>
 		<legend>Example from Erik</legend>
-	<pre class="javascript">
-		<code class="js" id="the_code" contenteditable="true">
-		//var app = qlik.openApp("Helpdesk Management.qvf", config);
-		var appId = 'xx';
-var app = qlik.openApp(xx, config);
-		app.getObject(document.getElementById("CH01"), "phtJg");
-		app.getSnapshot(document.getElementById("CH02"), "xpjj");
-		app.createList( {qDef: {qFieldDefs: ["Priority"]}, qFrequencyMode: "V",
-				qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},prio);
-		app.createList( {qDef: {qFieldDefs: ["Case Owner Group"]}, qFrequencyMode: "V",
-				qInitialDataFetch: [{qHeight: 20,qWidth: 1}]},caseOwner);
-				
-		app.getObject('test',"test2").then(function(res){
-			console.log('res');
-		});
+	<textarea class="javascript" style="width:100%;height:400px;" id="the_code">		
+			/*global require, alert*/
+/*
+ * 
+ * @owner Mike Woodward
+ */
+/*
+ * If you spot a bug in this code, please contact mwo@qlik.com
+ */
+/*
+ *    Fill in host and port for Qlik engine
+ */
+
+// Google maps initialization
+// --------------------------
+// Enable the visual refresh
+google.maps.visualRefresh = true;
+
+var googleMap    = null;
+var googleMarker = null;
+
+google.maps.event.addDomListener(window, 'load', googleMapInitialize);
+
+// Qlik Sense code
+// ===============
+var config =
+{
+    host: window.location.hostname,
+    prefix: "/",
+    port: window.location.port,
+    isSecure: window.location.protocol === "https:"
+};
+
+require.config({
+    baseUrl: (config.isSecure ? "https://" : "http://") + config.host + (config.port ? ":" + config.port : "") + config.prefix + "resources"
+});
+
+require(["js/qlik"], function (qlik) {
+
+    // Set up error handling.
+    qlik.setOnError(function (error) {
+        alert(error.message);
+    });
+
+    require(["jquery", "jqueryui"], function ($) {
+
+        // open app and get objects
+        var app = qlik.openApp("World business atlas.qvf", config);
+
+        // Create Lists
+        // ------------
+
+        // Fill the country name list. We don't know a priori how long the list is, so we'll send a query and get
+        // the length from that query.
+        app.createList(
+        {
+            "qDef": { "qFieldDefs": ["English short name"] },
+            "qInitialDataFetch": [{qTop: 0, qLeft: 0, qHeight: 1, qWidth: 1}]
+        },
+        function (reply) {
+
+            // The reply variable now holds the height of the field in reply.qListObject.qSize.qcy.
+            // Query again, but this time ask for all of the data 
+            app.createList(
+            {
+                 "qDef": { "qFieldDefs": ["English short name"] },
+                 "qInitialDataFetch": [{ qTop: 0, qLeft: 0, qHeight: reply.qListObject.qSize.qcy, qWidth: 1 }]
+             },
+             function (reply)
+             {
+                 // Set up the 'Select country' menus with the Qlik Sense menu data. Take actions
+                 // if the country selection has changed.
+                 countrySettings(reply.qListObject.qDataPages[0].qMatrix);
+             }
+             );
+        }
+        );
+
+
+        // Get the minimum and maximum years
+        app.createList(
+         {
+             "qDef": { "qFieldDefs": ["Year"] },
+             "qInitialDataFetch": [{ qTop: 0, qLeft: 0, qHeight: 1, qWidth: 1 }]
+         },
+         function (reply) {
+
+             // The reply variable now holds the height of the field in reply.qListObject.qSize.qcy, query again, but this time ask for all of the data 
+
+             app.createList(
+             {
+                 "qDef": { "qFieldDefs": ["Year"] },
+                 "qInitialDataFetch": [{ qTop: 0, qLeft: 0, qHeight: reply.qListObject.qSize.qcy, qWidth: 1 }]
+             },
+             function (reply) {
+
+                 // Set the year controls and display. Take actions if the year selections have changed.
+                 yearSettings(reply.qListObject.qDataPages[0].qMatrix);
+              }
+              );
+         }
+         );
+
+
+        // Create generic object
+        // ---------------------
+        // Get country-related information for the country data page using a generic object.
+        app.createGenericObject({
+            english_short_name: { qStringExpression: "[English short name]" },
+            region            : { qStringExpression: "[World Bank region]" },
+            capital_city      : { qStringExpression: "[Capital city]" },
+            lattitude         : { qStringExpression: "[Center lattitude]" },
+            longtitude        : { qStringExpression: "[Center longtitude]" },
+            google_maps_zoom  : { qStringExpression: "[Google Maps zoom]"},
+            calling_code      : { qStringExpression: "[Calling code]" },
+            area              : { qStringExpression: "[Area (km2)]" },
+            population        : { qStringExpression: "[Population (2012 or latest)]" },
+            two_letter        : { qStringExpression: "[Two letter abbreviation]" },
+            three_letter      : { qStringExpression: "[Three letter abbreviation]" },
+            anthem_name       : { qStringExpression: "[Anthem name]" },
+            anthem_link       : { qStringExpression: "[Anthem link]" },
+            wikipedia         : { qStringExpression: "[Wikipedia country article]" },
+            cia               : { qStringExpression: "[CIA World Factbook article]" },
+            bbc               : { qStringExpression: "[BBC country profile]" },
+            rss_name          : { qStringExpression: "[RSS feed name]" },
+            rss               : { qStringExpression: "[RSS URL]" },
+            gini_index        : { qStringExpression: "[Gini index]" },
+            median_age_total  : { qStringExpression: "[Median age total]" },
+            median_age_male   : { qStringExpression: "[Median age male]" },
+            median_age_female : { qStringExpression: "[Median age female]" },
+            ease_of_business  : { qStringExpression: "[Ease of business]" },
+            fdi_2012          : { qStringExpression: "=only({$<[Year] = {2012}>}[Foreign Direct Investment])" },
+            lpi_rank          : { qStringExpression: "[LPI Rank]" },
+            lpi_score         : { qStringExpression: "[LPI Score]" }
+        }, function (reply) {
+
+            // If no country selected, flag an error
+            if (reply.english_short_name == '-')
+            {
+                countryError();
+            }
+            else
+            {
+                countryUpdate(reply);
+            }
+        });
+
+        // Variables to store country selection data. These are set in the countrySettings function,
+        // but used in the code below to detect if we have more than one country selected.
+        var countryName = "";  // The names of the countries selected
+        var countryCount = 0;  // How many countries selected
+
+        // Create a cube
+        // -------------
+        // Create a cube to hold the city list for the selected country. The cube contains the list of cities,
+        // their populations, and lattitude and longtitude.
+        app.createCube(
+            {
+                qDimensions: [
+                              { qDef: { qFieldDefs: ["English short name"] } },
+                              { qDef: { qFieldDefs: ["City name"] } }
+                             ],
+
+                qMeasures: [
+                    { qDef: { qDef: "[City population]", qNumFormat: { qType: "I" } } },
+                    { qDef: { qDef: "[City latitude]", qNumFormat: { qType: "I" } } },
+                    { qDef: { qDef: "[City longitude]", qNumFormat: { qType: "I" } } },
+                ],
+
+                qInitialDataFetch: [{ qHeight: 1000, qWidth: 5 }],
+            },
+            function (reply) {
+
+                // Only update the city list page if there's only one country selected, if more than one country
+                // has been selected, blank the page.
+                if (1 == reply.qHyperCube.qDimensionInfo[0].qStateCounts.qSelected)
+                {
+                    cityListHtml(reply.qHyperCube.qDataPages[0].qMatrix);
+                }
+                else
+                {
+                    cityListHtmlBlank();
+                }
+            }
+         );
+
+        // Functions to update page text
+        // =============================
+
+        // countryError
+        // ------------
+        // If there's no country data to be displayed - flag an error message
+        function countryError()
+        {
+            $('#country-summary-name').html("-");
+            $('#country-data-name').html("-");
+
+            // Turn off the display of HTML data for the following IDs
+            $('#country-data-container').css("display", "none");
+            $('#country-summary-container').css("display", "none");
+
+            $('#country-summary-maprss').css("display", "none");
+
+            // Turn on the HTML ID showing the error message
+            $("#country-summary-error").css("display", "inline");
+            $("#country-data-error").css("display", "inline");
+
+            if (0 == countryCount)
+            {
+                var html = "We can't display country data because you haven't selected a country. <br>To select a country, click on 'Select country' and select a country.";
+
+                $("#country-summary-error").html(html);
+                $("#country-data-error").html(html);
+            }
+            else if (1 < countryCount)
+            {
+                var html = "We can't display country data because you have selected more than one country. <br>" +
+                           "To select just one country, click on 'Change country' and select a country, or click on " +
+                           "the selection bar and deselect countries until you have just one country.";
+
+                $("#country-summary-error").html(html);
+                $("#country-data-error").html(html);
+            }
+
+        };
+
+        // Update the country data
+        // -----------------------
+        function countryUpdate(reply)
+        {
+            // If an error messaging is being displayed, we need to undisplay it, turn on the 'normal' HTML, and resize the Google map
+            if ("inline" == $('#country-summary-error').css("display"))
+            {
+                $("#country-summary-error").css("display", "none");
+                $("#country-data-error").css("display", "none");
+
+                $('#country-data-container').css("display", "inline");
+                $('#country-summary-container').css("display", "inline");
+                $('#country-summary-maprss').css("display", "inline");
+
+                googleMapResize();
+            }
+
+            // Set the data on the country summary tab
+
+            // Set the map center
+            googleMapCenter(reply.lattitude, reply.longtitude, Number(reply.google_maps_zoom), reply.english_short_name);
+
+            var html = "";
+
+            // Set the rss feed
+
+            // We have to reset the HTML because otherwise the RSS feed appends to whatever's already there
+            $('#rss-content').html("");
+
+            // If there's an actual RSS feed, we'll use that, otherwise, we'll use a Google search on the country name
+            if (reply.rss_name.length > 5) {
+
+                html = "<h3>RSS news from " + reply.rss_name + "</h3>";
+
+                $('#rss-headline').html(html);
+
+                $('#rss-content').rss(reply.rss,
+                    {
+                        limit: 5,
+                        layoutTemplate: '<dl>{entries}</dl>',
+                        entryTemplate: '<dt><a href="{url}" target="_blank">{title}</a></dt><dd style="font-size:80%; margin-left:0px">{date}</dd><dd style="font-size:80%, margin-left:0px">{shortBodyPlain}</dd',
+                    }).show();
+            }
+            else {
+
+                html = "<h3>Google RSS news for " + reply.english_short_name + "</h3>";
+                $('#rss-headline').html(html);
+               
+                // Google RSS feed are cached which means we can sometimes get out of date RSS data. I've added a 'cache' busting parameter to try and ensure
+                // up to date data is returned. The downside is that the RSS HTML takes longer to update.
+                $('#rss-content').rss("https://news.google.com/news?hi=en&ned=us&output=rss&q=" + reply.english_short_name.replace(/ /g, "%20") + "&nocache=" +  (new Date).getTime(),
+                    {
+                        limit: 5,
+                        layoutTemplate: '<dl>{entries}</dl>',
+                        entryTemplate: '<dt><a href="{url}" target="_blank">{title}</a></dt><dd style="font-size:80%; margin-left:0px">{date}</dd><dd style="font-size:80%, margin-left:0px">{shortBodyPlain}</dd',
+                    }).show();
+            }
+
+
+            // Set the HTML 
+            $('#country-summary-name').html(reply.english_short_name);
+
+            $("#national-anthem").html(reply.anthem_name);
+
+            if ("-" == reply.anthem_link) {
+                $("#national-anthem-audio").html('');
+            }
+            else {
+
+                if (-1 != reply.anthem_link.search("ogg"))
+                {
+                    $("#national-anthem-audio").html('<audio controls><source src=' + reply.anthem_link + ' type="audio/ogg">Your browser does not support the audio tag.</audio><br>');
+                }
+                else if (-1 != reply.anthem_link.search("mp3"))
+                {
+                    $("#national-anthem-audio").html('<audio controls><source src=' + reply.anthem_link + ' type="audio/mp3">Your browser does not support the audio tag.</audio><br>');
+                }
+
+            }
+
+            // Set the flag
+            html = "<img src=Flags\\" + reply.three_letter + '.png' + ">";
+            $("#national-flag").html(html);
+
+            $("#region").html(reply.region);
+            $("#calling-code").html(reply.calling_code);
+            $("#two-letter-code").html(reply.two_letter);
+            $("#three-letter-code").html(reply.three_letter);
+            $("#capital-city").html(reply.capital_city);
+            $("#population").html(addCommas(reply.population));
+            $("#area").html(addCommas(reply.area));
+
+            html = "<a href=" + '"' + reply.wikipedia + '"' + "target=" + '"_blank"' + ">" + "Wikipedia article for " + reply.english_short_name + "</a>";
+            $("#wikipedia").html(html);
+
+            if ("-" == reply.cia) {
+                html = "";
+            }
+            else {
+                html = "<a href=" + '"' + reply.cia + '"' + "target=" + '"_blank"' + ">" + "CIA World Factbook article for " + reply.english_short_name + "</a>";
+            }
+            $("#cia").html(html);
+
+            if ("-" == reply.bbc) {
+                html = "";
+            }
+            else {
+                html = "<a href=" + '"' + reply.bbc + '"' + "target=" + '"_blank"' + ">" + "BBC country profile for " + reply.english_short_name + "</a>";
+            }
+            $("#bbc").html(html);
+
+            // Set the data for the country data tab
+
+            $('#country-data-name').html(reply.english_short_name)
+
+            $("#gini-index").html(reply.gini_index);
+
+            $('#median-age-total').html(reply.median_age_total);
+            $('#median-age-male').html(reply.median_age_male);
+            $('#median-age-female').html(reply.median_age_female);
+
+            $('#ease-of-business').html(reply.ease_of_business);
+
+            // If there are Foreign Direct Investments, add a $ sign and remove anything after the decimal point
+            if (reply.fdi_2012.length > 2)
+            {
+                var strFDI = " $";
+
+                strFDI = strFDI.concat(addCommas(reply.fdi_2012));
+
+                if (-1 != strFDI.indexOf(".")) 
+                {
+                    strFDI = strFDI.slice(0, strFDI.indexOf("."));
+                }
+                $('#foreign-direct-investment').html(strFDI);
+            }
+            else 
+            {
+                $('#foreign-direct-investment').html(reply.fdi_2012);
+            }
+
+
+            $('#lpi_rank').html(reply.lpi_rank);
+            $('#lpi_score').html(reply.lpi_score);
+
+            // Set the city tab
+            $('#city-list-name').html(reply.english_short_name);
+
+        };
+
+
+        // jQuery UI code
+        // ==============
+
+        // Set up the country tabs
+        // -----------------------
+
+        $("#tabs").tabs({ heightStyle: "auto" });
+
+        $("#tabs").tabs({
+            activate: function (event, ui)
+            {
+                // This code selects what visualizations are shown when the tab becomes active
+                if ("tabs-world-overview" == ui.newPanel.attr('id'))
+                {
+                    worldChartDisplay(worldChartSelected);
+                }
+                else if ("tabs-country-comparison" == ui.newPanel.attr('id'))
+                {
+                    app.getObject(document.getElementById("country-comparison-current-selections"), "CurrentSelections");
+                    app.getObject(document.getElementById("country-comparison-qlik-control"), "awAGFNc");
+                    countryChartDisplay(countryChartSelected);
+                }
+                else if ("tabs-country-data" == ui.newPanel.attr('id'))
+                {
+                    app.getObject(document.getElementById("country-data-population-pyramid-male"), "dypZA");
+                    app.getObject(document.getElementById("country-data-population-pyramid-female"), "JLscU");
+                    app.getObject(document.getElementById("country-data-income-chart"), "duGpQ");
+                }
+                else if ("tabs-country-summary" == ui.newPanel.attr('id'))
+                {
+                    // Google Map object must be resized - but first check that it's been initialized
+                    if (null == googleMap)
+                    {
+                        googleMapInitialize();
+                    }
+
+                    googleMapResize();
+                }
+            }
+        });
+
+
+        // Buttons on home page
+        // --------------------
+        $("#home-button-world").button();
+        $("#home-button-country-comparison").button();
+        $("#home-button-country-data").button();
+        $("#home-button-country-summary").button();
+
+        // When a button is clicked, go to the appropriate tab
+        $("#home-button-world").button().click(function ()              { $("#tabs").tabs("option", "active", 1); });
+        $("#home-button-country-comparison").button().click(function () { $("#tabs").tabs("option", "active", 2); });
+        $("#home-button-country-data").button().click(function ()       { $("#tabs").tabs("option", "active", 3); });
+        $("#home-button-country-summary").button().click(function ()    { $("#tabs").tabs("option", "active", 4); });
+
+        // Buttons on world overview page
+        // ------------------------------
+        $("#world-button-population").button();
+        $("#world-button-gdp").button();
+        $("#world-button-oil").button();
+        $("#world-button-food").button();
+ 
+        // Show the selected chart
+        $("#world-button-population").button().click(function () { worldChartDisplay(0) });
+        $("#world-button-gdp").button().click(function ()        { worldChartDisplay(1) });
+        $("#world-button-oil").button().click(function ()        { worldChartDisplay(2) });
+        $("#world-button-food").button().click(function ()       { worldChartDisplay(3) });
+
+
+        // Country comparison menu
+        // -----------------------
+        var countryChartSelected = 2;
+
+        var html =  "<li>";
+        html += "<a href=" + '"#"' + ">Select country comparison chart</a>";
+        html += "<ul>";
+        html += "<li><a href=" + '"#"' + ">" + "Consumer price inflation" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "GDP" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "GDP growth" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "GDP per capita" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Central government debt as % GDP" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Unemployment" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Population" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Population growth" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Urban population" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "% Urban population in biggest city" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Life expectancy at birth" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Internet users per 100 of population" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Mobile phone subscribers per 100 population" + "</a></li>";
+        html += "<li><a href=" + '"#"' + ">" + "Fixed broadband internet subscribers per 100 population" + "</a></li>";
+        html += "</ul>";
+        html += "</li>";
+
+        $('#country-comparison-chart-menu').html(html);
+
+        $("#country-comparison-chart-menu").menu({ icons: { submenu: "ui-icon-carat-1-e" }, position: { my: "right top", at: "right-245 top" } });
+
+        $("#country-comparison-chart-menu").menu("refresh");
+
+        $("#country-comparison-chart-menu").menu({
+            select: function (event, ui) {
+
+                var strText = ui.item.text();
+
+                if ('Consumer price inflation' == strText) { countryChartSelected = 0; }
+                else if ('GDP' == strText) { countryChartSelected = 1; }
+                else if ('GDP growth' == strText) { countryChartSelected = 2; }
+                else if ('GDP per capita' == strText) { countryChartSelected = 3; }
+                else if ('Central government debt as % GDP' == strText) { countryChartSelected = 4; }
+                else if ('Unemployment' == strText) { countryChartSelected = 5; }
+                else if ('Population' == strText) { countryChartSelected = 6; }
+                else if ('Population growth' == strText) { countryChartSelected = 7; }
+                else if ('Urban population' == strText) { countryChartSelected = 8; }
+                else if ('% Urban population in biggest city' == strText) { countryChartSelected = 9; }
+                else if ('Life expectancy at birth' == strText) { countryChartSelected = 10; }
+                else if ('Internet users per 100 of population' == strText) { countryChartSelected = 11; }
+                else if ('Fixed broadband internet subscribers per 100 population' == strText) { countryChartSelected = 12; }
+                else if ('Mobile phone subscribers per 100 population' == strText) { countryChartSelected = 13; };
+
+                countryChartDisplay(countryChartSelected);
+            }
+        });
+
+        // Country menu
+        // ------------
+
+        $(".country-menu").menu({ icons: { submenu: "ui-icon-carat-1-w" }, position: { my: "right top", at: "right-150 top" } });
+
+        $(".country-menu").menu({
+            select: function (event, ui) {
+
+                // Get the country name from the menu
+                var menuCountryName = ui.item.text();
+
+                // No country name is longer than 100 characters, so this is a sanity check
+                // that the country name is sensible.
+                if (menuCountryName.length < 100) {
+
+                    // Only select the country if it's changed.
+                    if (countryName != menuCountryName) {
+
+                        // Select the country through the Qlik Sense API
+                        app.field("English short name").selectMatch(menuCountryName, false);
+
+                    }
+                }
+            }
+        });
+
+
+        // Year slider
+        // -----------
+
+        // Set up the year slider control
+
+        var yearMinMaxInitialized = false;
+        var yearMin = 5000;
+        var yearMax = 0;
+
+        function yearSettings(yearList) {
+
+            // If the slider bar has been intialized, check to see if we need to update the controls
+            if (yearMinMaxInitialized) {
+
+                // Find the minimum and maximum selected values, we'll start by setting the 
+                // maximum and minimum values to dummy values.
+                var lowerSelected = 5000;
+                var upperSelected = 0;
+                var dummy = 0;
+
+                // Loop over every value looking to see if it's been selected, if it has, extract
+                // the year and update the minimum/maximum.
+                $.each(yearList, function (key, value) {
+                    if (value[0].qState == "S") {
+                        dummy = parseInt(value[0].qText);
+
+                        lowerSelected = lowerSelected < dummy ? lowerSelected : dummy;
+                        upperSelected = upperSelected > dummy ? upperSelected : dummy;
+                    }
+
+                });
+
+                // If either of our selection variables holds a dummy variable, it indicates that no
+                // selection has been made, so we should reset the controls. Note that the or is correct
+                // here - an and causes problems under some circumstances.
+                if ((5000 == lowerSelected) || (0 == upperSelected)) {
+                    $("#country-comparison-years").html(yearMin + " to " + yearMax);
+                    $("#country-comparison-chart-slider").slider("values", 0, yearMin);
+                    $("#country-comparison-chart-slider").slider("values", 1, yearMax);
+                }
+                // Selections have been made, so update the display.
+                else {
+                    $("#country-comparison-years").html(lowerSelected + " to " + upperSelected);
+                    $("#country-comparison-chart-slider").slider("values", 0, lowerSelected);
+                    $("#country-comparison-chart-slider").slider("values", 1, upperSelected);
+                }
+
+
+                return;
+            }
+            // The code below is one-time initialization 
+            else {
+
+                var dummy = 0;
+
+                // Contains a list of year values. These are ordered as they are in the 
+                // Qlik Sense field.
+                var years = [];
+
+                $.each(yearList, function (key, value) {
+                    dummy = parseInt(value[0].qText);
+
+                    yearMin = yearMin < dummy ? yearMin : dummy;
+                    yearMax = yearMax > dummy ? yearMax : dummy;
+
+                    // Add a year as an integer. Note the order in the list is the same
+                    // as the order int he Qlik Sense field
+                    years[value[0].qElemNumber] = parseInt(value[0].qText);
+
+                });
+
+
+                // This code is nested because we want it to be called here. It uses the years array 
+                $("#country-comparison-chart-slider").slider({
+                    range: true,
+                    min: yearMin,
+                    max: yearMax,
+                    step: 1,
+                    values: [yearMin, yearMax],
+                    slide: function (event, ui) {
+                        $("#country-comparison-years").html(ui.values[0] + " to " + ui.values[1]);
+                    },
+                    stop: function (event, ui) {
+
+                        // ui.values[0] holds the lower slected year and ui.values[1] holds the upper
+                        // selected year
+                        $("#country-comparison-years").html(ui.values[0] + " to " + ui.values[1]);
+
+                        // This list holds indices for the selected years. The indices are the indices in the
+                        // years list.
+                        var selectionIndices = [];
+
+                        // Loop over all years in the years list
+                        for (i = 0; i < years.length; ++i) {
+
+                            // If the year is in the year range, note it's index 
+                            if (years[i] >= ui.values[0] && years[i] <= ui.values[1]) {
+                                selectionIndices.push(i);
+                            }
+                        }
+
+                        // Select the years using the indices
+                        app.field("Year").select(selectionIndices, false, false);
+
+                    }
+                });
+
+                // Update the slider text
+                $("#country-comparison-years").html($("#country-comparison-chart-slider").slider("values", 0) + " to " + $("#country-comparison-chart-slider").slider("values", 1));
+
+                // Set the intialization flag
+                yearMinMaxInitialized = true;
+            }
+
+        };
+
+
+        // Country controls
+        // ----------------
+
+        // Function to fill out countries in menu
+        var countryMenuInitialized = false;
+
+        function countrySettings(countryList)
+        {
+            // If the menu has been initialized, this code is being called if a selection
+            // has been made. Update the countryName and countryCount from the selection.
+            if (countryMenuInitialized)
+            {
+                countryName = "";
+                countryCount = 0;
+
+                $.each(countryList, function (key, value) {
+                    if (value[0].qState == "S") {
+                        countryName += value[0].qText;
+                        countryCount++;
+                    }
+                });
+
+                return;
+            }
+
+            // The code below is called if this is initialization
+
+            // Setup the code for the jQuery UI control
+            var html = "<li><a href=" + '"#"' + ">Select country</a>"
+                     + "<ul>";
+
+            $.each(countryList, function (key, value)
+            {
+                html += "<li><a href=" + '"#"' + ">" + value[0].qText + "</a></li>";
+            });
+
+            html += "</ul></li>";
+
+            $('.country-menu').html(html);
+            $(".country-menu").menu("refresh");
+
+            // Set the intialization flag 
+            countryMenuInitialized = true;
+
+        };
+
+
+        // Cities data
+        // -----------
+
+        // Fill out cities on city page
+        function cityListHtml(list) {
+
+            var html_city_name = "";
+            var html_population = "";
+            var html_latitude = "";
+            var html_longitude = "";
+
+            // There is an error condition. If there are no cities, Qlik Sense will return 
+            // a "-" in the city name for the first city - so we must only add html if the first city name isn't
+            // a "-"
+            if ("-" != list[0][1].qText)
+            {
+    
+                for (i = 0; i < list.length; ++i)
+                {
+                    html_city_name  += list[i][1].qText + "<br>";
+                    html_population += addCommas(list[i][2].qText) + "<br>";
+                    html_latitude   += parseFloat(list[i][3].qNum).toFixed(3) + "<br>";
+                    html_longitude += parseFloat(list[i][4].qNum).toFixed(3) + "<br>";
+                }
+            }
+
+            $('#city-list-city').html(html_city_name);
+            $('#city-list-latitude').html(html_latitude);
+            $('#city-list-longitude').html(html_longitude);
+            $('#city-list-population').html(html_population);
+        };
+
+        // Blank the city display
+        function cityListHtmlBlank()
+        {
+            $('#city-list-name').html("");
+            $('#city-list-city').html("");
+            $('#city-list-latitude').html("");
+            $('#city-list-longitude').html("");
+            $('#city-list-population').html("");
+        }
+
+
+        // Chart selection sliders
+        // -----------------------
+
+        var worldChartSelected = 0;
+
+        function worldChartDisplay(chartChoice)
+        {
+            switch (chartChoice)
+            {
+                case 0: app.getObject(document.getElementById("world-overview-chart"), "phtJg");   break;
+                case 1: app.getObject(document.getElementById("world-overview-chart"), "kMvmtSC"); break;
+                case 2: app.getObject(document.getElementById("world-overview-chart"), "xpjj");    break;
+                case 3: app.getObject(document.getElementById("world-overview-chart"), "SWQJC");   break;
+            }
+
+            worldChartSelected = chartChoice;
+        };
+
+
+        function countryChartDisplay(chartChoice)
+        {
+            switch (chartChoice)
+            {
+                case 0: app.getObject(document.getElementById("country-comparison-qlik-chart"), "FGJPyj"); break;
+                case 1: app.getObject(document.getElementById("country-comparison-qlik-chart"), "Gajj"); break;
+                case 2: app.getObject(document.getElementById("country-comparison-qlik-chart"), "PHknamq"); break;
+                case 3: app.getObject(document.getElementById("country-comparison-qlik-chart"), "PrSmqz"); break;
+                case 4: app.getObject(document.getElementById("country-comparison-qlik-chart"), "DuTpphd"); break;
+                case 5: app.getObject(document.getElementById("country-comparison-qlik-chart"), "eKaevDJ"); break;
+
+                case 6: app.getObject(document.getElementById("country-comparison-qlik-chart"), "NQpudRW"); break;
+                case 7: app.getObject(document.getElementById("country-comparison-qlik-hart"), "PttnrZ"); break;
+                case 8: app.getObject(document.getElementById("country-comparison-qlik-chart"), "TmccCt"); break;
+                case 9: app.getObject(document.getElementById("country-comparison-qlik-chart"), "hhSDtka"); break;
+                case 10: app.getObject(document.getElementById("country-comparison-qlik-chart"), "jxydPCG"); break;
+
+                case 11: app.getObject(document.getElementById("country-comparison-qlik-chart"), "UDzqt"); break;
+                case 12: app.getObject(document.getElementById("country-comparison-qlik-chart"), "medvP"); break;
+                case 13: app.getObject(document.getElementById("country-comparison-qlik-chart"), "eFCHpFJ"); break;
+            }
+
+            countryChartSelected = chartChoice;
+        };
+
+    });
+
+});
+
+// Helper functions
+// ================
+
+// Adds thousand seperators for numbers
+function addCommas(nStr) {
+    var sep = ',';
+    nStr += '';
+    x = nStr.split('.');
+    x1 = x[0];
+    x2 = x.length > 1 ? '.' + x[1] : '';
+    var rgx = /(\d+)(\d{3})/;
+    while (rgx.test(x1)) {
+        x1 = x1.replace(rgx, '$1' + sep + '$2');
+    }
+    return x1 + x2;
+}
+
+
+// Google maps 
+// ===========
+
+function googleMapInitialize()
+{
+
+    var myLatLong  = new google.maps.LatLng(0, 0);
+    var mapOptions = { center: myLatLong, zoom: 7, mapTypeId: google.maps.MapTypeId.ROADMAP };
+
+    googleMap = new google.maps.Map(document.getElementById('country-summary-map'), mapOptions);
+
+    googleMarker = new google.maps.Marker({ position: myLatLong, title: "-" });
+    googleMarker.setMap(googleMap);
+}
+
+function googleMapCenter(lattitude, longtitude, zoom, name)
+{
+
+    if (null == googleMap)
+    {
+        googleMapInitialize();
+    }
+
+    var myLatLong = new google.maps.LatLng(lattitude, longtitude);
+
+    googleMap.setCenter(myLatLong);
+    googleMap.setZoom(zoom);
+
+    googleMarker.setPosition(myLatLong);
+    googleMarker.setTitle(name);
+
+    googleMarker.setMap(googleMap);
+}
+
+function googleMapResize()
+{
+    var currCenter = googleMap.getCenter();
+    google.maps.event.trigger(googleMap, 'resize');
+    googleMap.setCenter(currCenter);
+    google.maps.event.trigger(googleMap, 'resize');
+}
 		
-		var app2 = qlik.openApp('Helpdesk Management 2.qvf', config);
-		app2.getSomethingElse('asas');
-		app2.setSomethingElse('asas');
-        </code>
-	</pre>
+	</textarea>
 	<div class="toolbar">
 		<button name="btn_run" onclick="run();">Run Test</button>
 	</div>
@@ -50,7 +872,7 @@ var app = qlik.openApp(xx, config);
 		hljs.initHighlightingOnLoad();
 		var mashup = [];
 		
-		var txt = document.getElementById('the_code').innerHTML;
+		var txt = document.getElementById('the_code').value;
 		var getOpenAppStrings=function(txt){
 			var regExp = /[^\/\/^<!--]var\s+([a-zA-z0-9]+)\s*\=\s*qlik\.openApp\([^\)]*\)/g;
 			return txt.match(regExp);
@@ -109,7 +931,7 @@ var app = qlik.openApp(xx, config);
 		};
 		var getAppMethodsStrings = function(appVar,string){
 			if(appVar){
-				var regExp = new RegExp('[^\\/\\/^<!--]('+appVar+'\\.(?!openApp)[\\S\\s]+?((\\)\\;)|(\\)\\.)))','g');
+				var regExp = new RegExp('('+appVar+'\\.(?!openApp)[\\S\\s]+?((\\)\\;)|(\\)\\.))+?)','g');
 				var res = string.match(regExp);
 				if(res){
 					for(var i=0 ; i<res.length; i++){
@@ -123,8 +945,8 @@ var app = qlik.openApp(xx, config);
 				return [];
 			}
 		};
-		var openAppStringsArr = getOpenAppStrings(txt);
-		//console.log(openAppStringsArr.length);
+		/*var openAppStringsArr = getOpenAppStrings(txt);
+		console.log(openAppStringsArr.length);
 		for(var i=0; i< openAppStringsArr.length; i++){			
 			var app = {
 				appId : findAppId(openAppStringsArr[i].trim()),
@@ -136,8 +958,8 @@ var app = qlik.openApp(xx, config);
 				app.methods.push(getMethod(appMethodsStrings[j]));
 			}
 			mashup.push(app);			
-		}
-		console.log('mashup',mashup);
+		}*/
+		//console.log('mashup',mashup);
 		document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup,null,'\t')+';';
 		var run = function(){
 			mashup = [];
@@ -158,6 +980,33 @@ var app = qlik.openApp(xx, config);
 				document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup,null,'\t')+';';
 			}
 		}
+		
+		var getAppMethodsStrings2 = function(appVar,string){
+			if(appVar){
+				var regExp = new RegExp('('+appVar+'\\.(?!openApp)[\\S\\s]*)','g');
+				var res = string.match(regExp);				
+				if(res){
+					var counter=0;
+					var start = res[0].indexOf('(');
+					for(var i=start; i<res[0].length; i++){
+						if(res[0][i]==='('){ counter++; };
+						if(res[0][i]===')'){ counter--; };
+						if(counter===0){
+							console.log('found my end line'); 
+							console.log(res[0].slice(0,i+1));
+							return true;							
+						}
+					}
+				}else{
+					return [];
+				}
+			}else{
+				return [];
+			}
+		};
+		
+		var res = getAppMethodsStrings2('app',txt);
+		console.log(res);
 	</script>
 </body>
 </html>
