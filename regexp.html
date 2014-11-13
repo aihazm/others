@@ -991,8 +991,7 @@ function googleMapResize()
 					for(var i=start; i<res[0].length; i++){
 						if(res[0][i]==='('){ counter++; };
 						if(res[0][i]===')'){ counter--; };
-						if(counter===0){
-							console.log('found my end line'); 
+						if(counter===0){							 
 							console.log(res[0].slice(0,i+1));
 							return true;							
 						}
