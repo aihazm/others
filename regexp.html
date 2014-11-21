@@ -13,7 +13,8 @@
 	<h1>Regular expression test</h1>
 	<fieldset>
 		<legend>Example from Erik</legend>
-	<textarea class="javascript" style="width:100%;height:400px;" id="the_code">		
+	<textarea class="javascript" style="width:100%;height:400px;" id="the_code">
+		<!--
 			/*global require, alert*/
 /*
  * 
@@ -854,7 +855,7 @@ function googleMapResize()
     googleMap.setCenter(currCenter);
     google.maps.event.trigger(googleMap, 'resize');
 }
-		
+		-->
 	</textarea>
 	<div class="toolbar">
 		<button name="btn_run" onclick="run();">Run Test</button>
@@ -869,143 +870,178 @@ function googleMapResize()
 		</pre>
 	</fieldset>
 	<script type="text/javascript">
-		hljs.initHighlightingOnLoad();
-		var mashup = [];
-		
-		var txt = document.getElementById('the_code').value;
-		var getOpenAppStrings=function(txt){
-			var regExp = /[^\/\/^<!--]var\s+([a-zA-z0-9]+)\s*\=\s*qlik\.openApp\([^\)]*\)/g;
-			return txt.match(regExp);
+		var findAppMethods = function(appVar, string){
+			var methods = [];
+			var strings = getAppMethodsStrings(appVar, string);			
+			strings.forEach(function(str){
+				var last_char = str.substring(str.length-1,str.length);
+				if(last_char==='.'){
+					var char = '';
+					//console.log('we have a promise');
+					//findMethodPromise(str, string);
+				}
+				var method = getMethod(str);
+				methods.push(method);
+			});
+			return methods;
 		};
-		var getParamsInStringFn = function(text){
-			var regExp1 = /\(([^)]+)\)/g;
-			return regExp1.exec(text)[1].split(',');
-		};
-		var findAppId = function(string){
-			var appId = getParamsInStringFn(string)[0];
-			var regExp = /('|")([^('|")]*)('|")/;
-			var res = appId.match(regExp);
+		var extractFn = function(string){
+			var resString = string;
+			var regExp = /function\s*\(.*\)\s*{[\S\s]*}/g;
+			var res = string.match(regExp);			
 			if(res){
-				return res[2];
-			}else{
-				return false;
-			}
-		};		
-		var findAppVar = function(string){//<- ToDo: correct var exclusion
-			var regExp = /^var\s([0-9a-zA-Z_$]*)/i;			
-			return string.match(regExp)[1];
-		};
-		var getMethod = function(string){
+				var counter = 0;
+				var start = res[0].indexOf('{');
+				for(var i=start; i< res[0].length; i++){					
+					if(res[0][i]==='}'){ counter++;}
+					if(res[0][i]==='{'){ counter--;}
+					if(counter===0){
+						resString = res[0].slice(0,i+1);
+					}
+				}
+			}else{ return false;}
+			return resString;
+		}
+		var extractObj = function(string){
+			var resString = string;			
+			var regExp = /function\s*\(.*\)\s*{[\S\s]*}/g;
+			var res = string.match(regExp)[0];			
+			if(res){
+				var counter = 0;
+				var start = res.indexOf('{');
+				for(var i=start; i< res.length; i++){					
+					if(res[i]==='}'){ counter++;}
+					if(res[i]==='{'){ counter--;}
+					if(counter===0){
+						resString = res.slice(0,i+1);
+					}
+				}
+			}			
+			return resString;
+		}
+		var getMethod = function(methodString){			
 			var method = {};
 			var regExp = /\.([^\(]*)/i; //getting method name
-			method['name'] = string.match(regExp)[0];
-			var regExp = /\(([\s\S]+?)((\)\;)|(\)\.))/g;
-			var paramsString = string.match(regExp)[0];			
+			method.name = methodString.match(regExp)[0];
+			console.log(method.name);
+			regExp = /\(([\S\s]*)\)/g;
+			var paramsString = methodString.match(regExp)[0];									
 			var params=[];
+			// Obs the order is imperative 1st test functions 2nd test objects 3rd test string 4th test vars
 			if(paramsString){
-				paramsString= paramsString.substring(1, paramsString.length-2);// removing parantheses
-				var regExpParams = /(\{[\S\s]*\})/g;
-				var obj = paramsString.match(regExpParams);
-				if(obj){// we may have an object
-					try{
-						params.push(obj[0]);
-						paramsString = paramsString.replace(obj,"");
-						var otherParams = paramsString.split(',');
-						for(var p=0; p<otherParams.length; p++){
-							if(otherParams[p].trim()!==''){
-								otherParams[p]=otherParams[p].replace(/("|')/g,'');
-								params.push(otherParams[p]);
-							}
-						} 
-					}catch(e){console.log(e);}
-				}else{
-					params=paramsString.split(',');
-					//remove quotes from simple strings
-					for(var k=0; k<params.length; k++){
-						params[k]=params[k].replace(/("|')/g,'');
-					}
-				};
-				method['params'] = params;
+				paramsString= paramsString.substring(1, paramsString.length-1);// removing parantheses				
+				var regExpParam = /(document.getElementById\(('|").*('|")\))/g;
+				var domEl = paramsString.match(regExpParam);
+				/** todo: support jQuery / angular / mootool / extjs selectors */
+				if(domEl){//we have a dom element
+					domEl.forEach(function(d){
+						params.push(d);
+						paramsString = paramsString.replace(d,"");//let's remove the found string
+					});				
+				}
+				//testing functions
+				
+				var fnString = extractFn(paramsString);
+				if(fnString){//we have a function (only one function extracted)					
+					/*eslint-disable no-eval*/
+					params.push(eval('('+fnString+')'));
+					/*eslint-enable no-eval*/
+					paramsString = paramsString.replace(fnString,"");//let's remove the found string									
+				}
+				//testing object			
+				regExpParam = /({[\S\s]*})/g;
+				var obj = paramsString.match(regExpParam);
+				if(obj){//we have an object
+					obj.forEach(function(o){						
+						/*eslint-disable no-eval*/
+						params.push(eval('('+o+')'));
+						/*eslint-enable no-eval*/
+						paramsString = paramsString.replace(o,"");//let's remove the found string
+					});								
+				}
+				//testing string
+				regExpParam = /(("|')[^("|')]*("|'))/g;
+				var string = paramsString.match(regExpParam);
+				if(string){				
+					//we have a string
+					string.forEach(function(str){
+						/*eslint-disable no-eval*/
+						params.push(eval('('+str+')'));
+						/*eslint-enable no-eval*/
+						paramsString = paramsString.replace(str,"");//let's remove the found string
+					});
+				}
+				//testing var wich can be strings, functions arrays or objects
+				regExpParam = /([^\s,][A-Za-z0-9$_]*)/g;
+				var variable = paramsString.match(regExpParam);
+				if(variable){//we have a string
+					variable.forEach(function(v){
+						/** @todo implement finVarValue in all string ::: if(findVarValue()) */
+						params.push(v);
+						paramsString = paramsString.replace(v,"");//let's remove the found string
+					});								
+				}			
+				method.params = params;
 			}
 			return method;
 		};
 		var getAppMethodsStrings = function(appVar,string){
-			if(appVar){
-				var regExp = new RegExp('('+appVar+'\\.(?!openApp)[\\S\\s]+?((\\)\\;)|(\\)\\.))+?)','g');
-				var res = string.match(regExp);
-				if(res){
-					for(var i=0 ; i<res.length; i++){
-						res[i]=res[i].trim();
-					}
-					return res;
-				}else{
-					return [];
-				}				
-			}else{
-				return [];
-			}
-		};
-		/*var openAppStringsArr = getOpenAppStrings(txt);
-		console.log(openAppStringsArr.length);
-		for(var i=0; i< openAppStringsArr.length; i++){			
-			var app = {
-				appId : findAppId(openAppStringsArr[i].trim()),
-				'var': findAppVar(openAppStringsArr[i].trim()),
-				methods : []
-			};
-			var appMethodsStrings = getAppMethodsStrings(app.var,txt);			
-			for(var j=0; j<appMethodsStrings.length; j++){
-				app.methods.push(getMethod(appMethodsStrings[j]));
-			}
-			mashup.push(app);			
-		}*/
-		//console.log('mashup',mashup);
-		document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup,null,'\t')+';';
-		var run = function(){
-			mashup = [];
-			txt = document.getElementById('the_code').innerHTML;
-			var openAppStringsArr = getOpenAppStrings(txt);
-			console.log(openAppStringsArr);
-			for(var i=0; i< openAppStringsArr.length; i++){			
-				var app = {
-					appId : findAppId(openAppStringsArr[i].trim()),
-					'var': findAppVar(openAppStringsArr[i].trim()),
-					methods : []
-				};
-				var appMethodsStrings = getAppMethodsStrings(app.var,txt);			
-				for(var j=0; j<appMethodsStrings.length; j++){
-					app.methods.push(getMethod(appMethodsStrings[j]));
-				}
-				mashup.push(app);
-				document.getElementById('the_res').innerHTML='		var mashup = '+JSON.stringify(mashup,null,'\t')+';';
-			}
-		}
-		
-		var getAppMethodsStrings2 = function(appVar,string){
-			if(appVar){
-				var regExp = new RegExp('('+appVar+'\\.(?!openApp)[\\S\\s]*)','g');
-				var res = string.match(regExp);				
-				if(res){
-					var counter=0;
-					var start = res[0].indexOf('(');
-					for(var i=start; i<res[0].length; i++){
-						if(res[0][i]==='('){ counter++; };
-						if(res[0][i]===')'){ counter--; };
-						if(counter===0){							 
-							console.log(res[0].slice(0,i+1));
-							return true;							
-						}
+			this.resString = string;
+			var appMethods = [];
+			function extract(appVar, string){				
+				if(appVar){
+					var regExp = new RegExp('('+appVar+'\\.(?!openApp)[\\S\\s]*)','g');					
+					var res = this.resString.match(regExp);				
+					if(res){
+						var counter=0;
+						var start = res[0].indexOf('(');
+						for(var i=start; i<res[0].length; i++){
+							if(res[0][i]==='('){ counter++; };
+							if(res[0][i]===')'){ counter--; };
+							if(counter===0){
+	                            if(res[0][i+1]===';'){
+									appMethods.push(res[0].slice(0,i+2));
+									this.resString=this.resString.replace(res[0].slice(0,i+2),'');
+	                            }else if(res[0][i+1]==='.'){//we have a promise, DO something about it!!!!
+	                            	appMethods.push(res[0].slice(0,i+1));
+									this.resString=this.resString.replace(res[0].slice(0,i+1),'');
+	                            }else{
+	                            	appMethods.push(res[0].slice(0,i+1));
+									this.resString=this.resString.replace(res[0].slice(0,i+1),'');
+	                            }
+	                            if(extract(appVar, this.resString)){									
+		                        	return true;
+		                        };
+	                            return false;
+							}
+						}						
+                        return false;
+					}else{
+						return true;
 					}
 				}else{
-					return [];
+					return false;
 				}
-			}else{
-				return [];
 			}
+			extract(appVar, resString);
+			return appMethods;
 		};
-		
-		var res = getAppMethodsStrings2('app',txt);
+		var txt = document.getElementById('the_code').value;
+		var res = findAppMethods('app',txt);
 		console.log(res);
+		var tet = function(){
+			var all = 10;
+			function dim(val){
+				if(all === 0){
+					return true;
+				}
+				all--;
+				console.log(all);
+				if(dim(all)){return true;}
+				return false
+			}
+			dim(all);
+		}
 	</script>
 </body>
 </html>
